@@ -1,0 +1,21 @@
+# Python
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/.env
+backend/uploads/
+backend/spineai.db
+
+# Model weights (large binary files)
+backend/model/weights/*.pth
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Mac OS files
+.DS_Store
+.AppleDouble
+.LSOverride
+*.log
