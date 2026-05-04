@@ -10,19 +10,13 @@ from config import settings
 router = APIRouter()
 
 # In-memory store for demo; replace with DB in production
-_analysis_cache: dict = {}
-
-
-def store_analysis(analysis_id: str, data: dict):
-    _analysis_cache[analysis_id] = data
-
-
-def get_analysis(analysis_id: str) -> dict:
-    return _analysis_cache.get(analysis_id)
+from cache import store_analysis, get_analysis
 
 
 @router.post("/report", response_model=ReportResponse)
 async def generate_report(request: ReportRequest):
+    print(f"DEBUG - Received analysis_id: {request.analysis_id}")  # ADD THIS
+    
     analysis = get_analysis(request.analysis_id)
     if not analysis:
         raise HTTPException(404, "Analysis not found. Run /analyze first.")
@@ -40,6 +34,8 @@ async def generate_report(request: ReportRequest):
             patient_info=patient_info,
         )
     except Exception as e:
+        import traceback
+        traceback.print_exc()  # ADD THIS
         raise HTTPException(500, f"Report generation failed: {str(e)}")
 
     return ReportResponse(

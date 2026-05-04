@@ -1,11 +1,13 @@
+import os
 from pydantic_settings import BaseSettings
 from pathlib import Path
+
 
 class Settings(BaseSettings):
     APP_NAME: str = "SpineAI"
     VERSION: str = "1.0.0"
     DATABASE_URL: str = "sqlite+aiosqlite:///./spineai.db"
-    ANTHROPIC_API_KEY: str = ""
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
     MODEL_WEIGHTS_PATH: str = "model/weights/posturenet.pth"
     UPLOAD_DIR: str = "uploads"
     MAX_IMAGE_SIZE: int = 10 * 1024 * 1024  # 10MB
@@ -20,11 +22,12 @@ class Settings(BaseSettings):
         "East Asian", "South Asian", "Sub-Saharan African",
         "European", "Latin American", "Middle Eastern"
     ]
-    SECRET_KEY: str = "change-this-in-production-use-long-random-string"
+    SECRET_KEY: str = "SDP_project"
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]
 
     class Config:
         env_file = ".env"
+
 
 settings = Settings()
 

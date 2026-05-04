@@ -16,6 +16,11 @@ from model.sea_generalizer import compute_ratios, ANTHROPOMETRIC_BASELINES
 
 ETHNICITY_TO_IDX = {name: i for i, name in enumerate(ANTHROPOMETRIC_BASELINES.keys())}
 
+# Newer albumentations dropped "normalized" format.
+# We use "xy" (absolute pixel coords) instead and normalize manually after transform.
+# Keypoints stored in annotations as [0,1] are scaled up before transform,
+# then divided back down after.
+
 
 def get_train_transforms():
     return A.Compose([
@@ -24,10 +29,10 @@ def get_train_transforms():
         A.Rotate(limit=15, p=0.5),
         A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.1, p=0.4),
         A.GaussianBlur(blur_limit=3, p=0.2),
-        A.CoarseDropout(max_holes=4, max_height=32, max_width=32, p=0.3),  # Occlusion dropout
+        A.CoarseDropout(max_holes=4, max_height=32, max_width=32, p=0.3),
         A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ToTensorV2(),
-    ], keypoint_params=A.KeypointParams(format="normalized", remove_invisible=False))
+    ], keypoint_params=A.KeypointParams(format="xy", remove_invisible=False))
 
 
 def get_val_transforms():
@@ -35,7 +40,7 @@ def get_val_transforms():
         A.Resize(settings.IMAGE_SIZE, settings.IMAGE_SIZE),
         A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ToTensorV2(),
-    ], keypoint_params=A.KeypointParams(format="normalized", remove_invisible=False))
+    ], keypoint_params=A.KeypointParams(format="xy", remove_invisible=False))
 
 
 class SpineDataset(Dataset):
@@ -68,18 +73,23 @@ class SpineDataset(Dataset):
         sample = self.samples[idx]
         img = cv2.imread(sample["file_path"])
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        kps = sample["keypoints"]  # list of [x, y] normalized
-        kps_alb = [(x, y) for x, y in kps]
+        h, w = img.shape[:2]
+
+        # Keypoints in annotations are normalized [0,1].
+        # Scale to absolute pixel coords for albumentations "xy" format.
+        kps = sample["keypoints"]  # list of [x, y] in [0,1]
+        kps_alb = [(x * w, y * h) for x, y in kps]
 
         transformed = self.transforms(image=img, keypoints=kps_alb)
         image = transformed["image"]
         kps_t = transformed["keypoints"]
 
-        # Rebuild keypoints (some may be dropped by augmentation)
+        # Re-normalize back to [0,1] after transform (image is now IMAGE_SIZE x IMAGE_SIZE)
+        out_size = settings.IMAGE_SIZE
         keypoints = np.zeros((settings.NUM_KEYPOINTS, 2), dtype=np.float32)
         for i, kp in enumerate(kps_t):
             if i < settings.NUM_KEYPOINTS:
-                keypoints[i] = [kp[0], kp[1]]
+                keypoints[i] = [kp[0] / out_size, kp[1] / out_size]
 
         # Generate Gaussian heatmaps
         heatmaps = np.zeros((settings.NUM_KEYPOINTS, 64, 64), dtype=np.float32)

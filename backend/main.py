@@ -75,3 +75,8 @@ async def health():
 @app.get("/")
 async def root():
     return {"message": "SpineAI API — visit /docs for interactive API documentation"}
+
+@app.get("/api/v1/debug/cache")
+async def debug_cache():
+    from cache import _analysis_cache
+    return {"cache_keys": list(_analysis_cache.keys())}

@@ -64,6 +64,16 @@ ANTHROPOMETRIC_BASELINES: Dict[str, Dict[str, Tuple[float, float]]] = {
     },
 }
 
+# Mapping from ethnicity name to integer index (used by nn.Embedding)
+ETHNICITY_TO_IDX: Dict[str, int] = {
+    "East Asian": 0,
+    "South Asian": 1,
+    "Sub-Saharan African": 2,
+    "European": 3,
+    "Latin American": 4,
+    "Middle Eastern": 5,
+}
+
 # Universal reference baseline (population-agnostic mean)
 UNIVERSAL_BASELINE: Dict[str, Tuple[float, float]] = {
     "THR": (0.510, 0.029),

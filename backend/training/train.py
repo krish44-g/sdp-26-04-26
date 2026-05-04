@@ -49,7 +49,12 @@ def train(args):
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
 
     best_val_f1 = 0.0
-    Path("model/weights").mkdir(exist_ok=True)
+    Path("model/weights").mkdir(parents=True, exist_ok=True)
+    Path("results").mkdir(parents=True, exist_ok=True)
+
+    # FIX: training_log must be initialized before the epoch loop.
+    # Previously missing, which caused a NameError crash on the first epoch.
+    training_log = []
 
     for epoch in range(1, args.epochs + 1):
         model.train()
@@ -81,8 +86,19 @@ def train(args):
         metrics = compute_metrics(preds, labels)
         val_f1 = metrics["macro_f1"]
 
-        print(f"Epoch {epoch:03d} | Loss: {total_loss/len(train_loader):.4f} | "
+        epoch_loss = total_loss / len(train_loader)
+        print(f"Epoch {epoch:03d} | Loss: {epoch_loss:.4f} | "
               f"Val F1: {val_f1:.4f} | Val AUC: {metrics['macro_auc']:.4f}")
+
+        # Save training log every epoch for plot_results.py
+        training_log.append({
+            "epoch": epoch,
+            "loss": round(epoch_loss, 4),
+            "val_f1": round(val_f1, 4),
+            "val_auc": round(metrics["macro_auc"], 4),
+        })
+        with open("results/training_log.json", "w") as f:
+            json.dump(training_log, f, indent=2)
 
         if val_f1 > best_val_f1:
             best_val_f1 = val_f1

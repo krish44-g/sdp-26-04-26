@@ -4,8 +4,9 @@ Evaluation metrics for SpineAI: PCKh@0.5, F1, AUC-ROC, Severity MAE.
 import numpy as np
 from sklearn.metrics import (
     f1_score, roc_auc_score, precision_score, recall_score,
-    confusion_matrix, average_precision_score
+    average_precision_score
 )
+# NOTE: confusion_matrix is used in evaluate.py, not here — removed from this import.
 from typing import Dict
 
 
@@ -15,8 +16,15 @@ def compute_metrics(
     threshold: float = 0.5,
 ) -> Dict[str, float]:
     """
-    probs: (N, C) sigmoid probabilities
-    labels: (N, C) multi-hot ground truth
+    Compute classification metrics for multi-label output.
+
+    Args:
+        probs:     (N, C) sigmoid probabilities from the model.
+        labels:    (N, C) multi-hot ground truth.
+        threshold: Decision threshold for converting probabilities to predictions.
+
+    Returns:
+        Dictionary of scalar and per-class metrics.
     """
     preds = (probs >= threshold).astype(int)
 
@@ -32,14 +40,16 @@ def compute_metrics(
     metrics["macro_recall"] = float(recall_score(labels, preds, average="macro", zero_division=0))
 
     # AUC-ROC (macro)
+    # Both branches return a plain Python list for consistency.
     try:
         metrics["macro_auc"] = float(roc_auc_score(labels, probs, average="macro"))
         metrics["per_class_auc"] = roc_auc_score(labels, probs, average=None).tolist()
     except ValueError:
+        # Raised when a class has only one unique label value in this batch.
         metrics["macro_auc"] = 0.0
         metrics["per_class_auc"] = [0.0] * labels.shape[1]
 
-    # Average Precision
+    # Average Precision (mAP)
     try:
         metrics["map"] = float(average_precision_score(labels, probs, average="macro"))
     except ValueError:
@@ -54,10 +64,19 @@ def pckh_at_05(
     head_size: float = 0.1,
 ) -> float:
     """
-    Percentage of Correct Keypoints with threshold 0.5 * head_size.
-    pred_kps, gt_kps: (N, K, 2) normalized [0,1]
-    head_size: normalized head diameter estimate (default 10% of image)
+    Percentage of Correct Keypoints at threshold 0.5 * head_size (PCKh@0.5).
+
+    Args:
+        pred_kps:  (N, K, 2) predicted keypoint coordinates, normalized to [0, 1].
+        gt_kps:    (N, K, 2) ground-truth keypoint coordinates, normalized to [0, 1].
+        head_size: Normalized head diameter estimate (default: 10% of image height).
+
+    Returns:
+        Scalar PCKh@0.5 score in [0, 1]. Returns 0.0 if inputs are empty.
     """
+    if pred_kps.size == 0 or gt_kps.size == 0:
+        return 0.0
+
     threshold = 0.5 * head_size
     dist = np.linalg.norm(pred_kps - gt_kps, axis=-1)  # (N, K)
     correct = (dist < threshold).astype(float)
@@ -65,7 +84,24 @@ def pckh_at_05(
 
 
 def severity_mae(pred_probs: np.ndarray, gt_severity: np.ndarray, labels: np.ndarray) -> float:
-    """Mean Absolute Error of severity prediction for positive classes only."""
+    """
+    Mean Absolute Error between predicted severity and ground-truth severity,
+    computed only over positive (present) classes.
+
+    NOTE: pred_probs (sigmoid class probabilities) are used as a proxy for
+    severity magnitude. This is intentional — the model does not have a
+    dedicated severity head; instead, probability correlates with severity
+    by design. If a separate severity head is added in future, replace
+    pred_probs here with its output.
+
+    Args:
+        pred_probs:  (N, C) sigmoid probabilities — used as severity proxy.
+        gt_severity: (N, C) ground-truth severity scores in [0, 1].
+        labels:      (N, C) multi-hot ground truth — used to mask negatives.
+
+    Returns:
+        Scalar MAE over positive classes. Returns 0.0 if no positives exist.
+    """
     mask = labels > 0
     if not mask.any():
         return 0.0

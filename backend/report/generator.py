@@ -1,8 +1,8 @@
 """
-AI Clinical Report Generator using Anthropic Claude API.
+AI Clinical Report Generator using Groq API (llama-3.3-70b-versatile).
 """
-import anthropic
 import json
+from groq import AsyncGroq
 from config import settings
 
 DEFORMITY_CLASSES = settings.DEFORMITY_CLASSES
@@ -55,15 +55,9 @@ async def generate_clinical_report(
     patient_info: dict = None,
 ) -> dict:
     """
-    Generate a structured clinical report from model outputs.
-    
-    Args:
-        probabilities: {class_name: probability} dict
-        corrected_ratios: {THR, SHR, LBP, CLB} after SEA correction
-        ethnicity: patient ethnicity string
-        patient_info: optional {age, sex, chief_complaint}
+    Generate a structured clinical report from model outputs using Groq.
     """
-    client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+    client = AsyncGroq(api_key=settings.GROQ_API_KEY)
 
     # Build detected conditions list
     detected = [
@@ -91,18 +85,22 @@ SEA-Corrected Anthropometric Ratios (z-scores relative to universal baseline):
 
 Generate a comprehensive clinical report in the specified JSON format."""
 
-    message = await client.messages.create(
-        model="claude-sonnet-4-20250514",
+    response = await client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_content},
+        ],
+        temperature=0.2,
         max_tokens=1500,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_content}]
     )
 
-    response_text = message.content[0].text.strip()
+    response_text = response.choices[0].message.content.strip()
+
     # Strip any markdown fences if present
     if response_text.startswith("```"):
         response_text = response_text.split("```")[1]
         if response_text.startswith("json"):
             response_text = response_text[4:]
-    
+
     return json.loads(response_text)

@@ -34,7 +34,7 @@ export default function Results() {
       toast.success('Clinical report generated!')
       navigate(`/report/${result.analysis_id}`, { state: { report, result } })
     } catch {
-      toast.error('Report generation failed. Check Anthropic API key.')
+      toast.error("Report generation failed. Please try again.")
     } finally {
       setGenLoading(false)
     }

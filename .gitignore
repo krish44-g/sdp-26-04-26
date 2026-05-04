@@ -19,3 +19,9 @@ frontend/dist/
 .AppleDouble
 .LSOverride
 *.log
+
+data/
+results/
+venv/
+.env
+__pycache__/

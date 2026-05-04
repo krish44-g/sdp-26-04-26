@@ -106,6 +106,17 @@ async def analyze_image(
         raw_ratios = RatioResult(THR=float(raw[0]), SHR=float(raw[1]), LBP=float(raw[2]), CLB=float(raw[3]))
         corr_ratios = RatioResult(THR=float(corr[0]), SHR=float(corr[1]), LBP=float(corr[2]), CLB=float(corr[3]))
 
+        # Store analysis for report generation
+        # Store analysis for report generation
+        from cache import store_analysis
+        store_analysis(analysis_id, {
+            "deformities": [{"name": d.name, "probability": d.probability} for d in deformity_results],
+            "corrected_ratios": {"THR": float(corr[0]), "SHR": float(corr[1]), "LBP": float(corr[2]), "CLB": float(corr[3])},
+            "ethnicity": ethnicity.value,
+            "patient_info": {"age": age, "sex": sex},
+        })
+        print(f"DEBUG - Stored analysis_id: {analysis_id}")
+
         return AnalysisResponse(
             analysis_id=analysis_id,
             image_url=f"/uploads/{analysis_id}{ext}",
